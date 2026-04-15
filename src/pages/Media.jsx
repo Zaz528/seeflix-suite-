@@ -1,43 +1,116 @@
-import Navbar from '../components/Navbar';
-import MediaCard from '../components/MediaCard';
-import Footer from '../components/Footer';
-import { trending_movies } from '../data/trending_movies';
-import { top_shows } from '../data/top_shows';
-import './Media.css';
-
-const allMedia = [...trending_movies, ...top_shows];
+import { useEffect, useState } from "react";
+import Navbar from "../components/Navbar";
+import MediaCard from "../components/MediaCard";
+import Footer from "../components/Footer";
+import { getPopularMovies, searchMovies } from "../API/API";
+import "./Media.css";
 
 function Media() {
+  const [movies, setMovies] = useState([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  
+  useEffect(() => {
+    loadPopularMovies();
+  }, []);
+
+  const loadPopularMovies = async () => {
+    try {
+      setLoading(true);
+      const data = await getPopularMovies();
+
+      console.log("POPULAR:", data); 
+
+      setMovies(data?.results || []);
+    } catch (error) {
+      console.error("Erreur chargement films:", error);
+      setMovies([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+ 
+  const handleSearch = async (e) => {
+    e.preventDefault();
+
+    if (!search.trim()) {
+      loadPopularMovies();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await searchMovies(search);
+
+      console.log("SEARCH:", data); 
+
+      setMovies(data?.results || []);
+    } catch (error) {
+      console.error("Erreur recherche:", error);
+      setMovies([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="media-page">
       <Navbar />
+
       <main className="media-page__main">
         <div className="media-page__inner">
+
+          {/* HEADER */}
           <div className="media-page__header">
-            <h1 className="media-page__title">Catalogue Complet</h1>
+            <h1 className="media-page__title">Catalogue TMDB</h1>
+
             <p className="media-page__subtitle">
-              {allMedia.length} titres disponibles — films et séries
+              {movies.length} films disponibles
             </p>
           </div>
 
-          <div className="media-page__legend">
-            <span className="media-legend media-legend--movie">Film</span>
-            <span className="media-legend media-legend--tvshow">Série</span>
+          {/* SEARCH */}
+          <form onSubmit={handleSearch} className="media-search">
+            <input
+              type="text"
+              placeholder="Rechercher un film..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <button type="submit">Rechercher</button>
+          </form>
+
+          {/* LOADING */}
+          {loading && <p>Chargement...</p>}
+
+          {/* GRID */}
+          <div className="media-page__grid">
+            {!loading &&
+              movies.map((movie) => (
+                <MediaCard
+                  key={movie.id}
+                  title={movie.title}
+                  cover={
+                    movie.poster_path
+                      ? `https://image.tmdb.org/t/p/w300${movie.poster_path}`
+                      : "https://via.placeholder.com/300x450?text=No+Image"
+                  }
+                  rating={movie.vote_average}
+                  type="movie"
+                />
+              ))}
           </div>
 
-          <div className="media-page__grid">
-            {allMedia.map((item) => (
-              <MediaCard
-                key={item.id}
-                title={item.title}
-                cover={item.cover}
-                rating={item.rating}
-                type={item.type}
-              />
-            ))}
-          </div>
+          {/* EMPTY STATE */}
+          {!loading && movies.length === 0 && (
+            <p>Aucun film trouvé.</p>
+          )}
+
         </div>
       </main>
+
       <Footer />
     </div>
   );
