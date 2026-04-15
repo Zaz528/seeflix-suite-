@@ -2,57 +2,71 @@ import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import MediaCard from "../components/MediaCard";
 import Footer from "../components/Footer";
-import { getPopularMovies, searchMovies } from "../API/API";
+
+import {
+  getPopularMovies,
+  searchMovies,
+  getGenres,
+  getMoviesByGenre
+} from "../API/API";
+
 import "./Media.css";
 
 function Media() {
   const [movies, setMovies] = useState([]);
+  const [genres, setGenres] = useState([]);
   const [search, setSearch] = useState("");
+  const [selectedGenre, setSelectedGenre] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  
+
   useEffect(() => {
-    loadPopularMovies();
+    loadMovies();
+    loadGenres();
   }, []);
 
-  const loadPopularMovies = async () => {
+  const loadMovies = async () => {
     try {
       setLoading(true);
+      setSelectedGenre(null);
+
       const data = await getPopularMovies();
-
-      console.log("POPULAR:", data); 
-
       setMovies(data?.results || []);
-    } catch (error) {
-      console.error("Erreur chargement films:", error);
+    } catch (err) {
       setMovies([]);
     } finally {
       setLoading(false);
     }
   };
 
- 
+  
+  const loadGenres = async () => {
+    const data = await getGenres();
+    setGenres(data?.genres || []);
+  };
+
+
   const handleSearch = async (e) => {
     e.preventDefault();
 
     if (!search.trim()) {
-      loadPopularMovies();
+      loadMovies();
       return;
     }
 
-    try {
-      setLoading(true);
-      const data = await searchMovies(search);
+    const data = await searchMovies(search);
+    setMovies(data?.results || []);
+  };
 
-      console.log("SEARCH:", data); 
 
-      setMovies(data?.results || []);
-    } catch (error) {
-      console.error("Erreur recherche:", error);
-      setMovies([]);
-    } finally {
-      setLoading(false);
-    }
+  const handleGenreClick = async (genreId) => {
+    setLoading(true);
+    setSelectedGenre(genreId);
+
+    const data = await getMoviesByGenre(genreId);
+    setMovies(data?.results || []);
+
+    setLoading(false);
   };
 
   return (
@@ -62,17 +76,14 @@ function Media() {
       <main className="media-page__main">
         <div className="media-page__inner">
 
-          {/* HEADER */}
-          <div className="media-page__header">
-            <h1 className="media-page__title">Catalogue TMDB</h1>
+          <h1 className="media-page__title">🎬 Catalogue TMDB</h1>
 
-            <p className="media-page__subtitle">
-              {movies.length} films disponibles
-            </p>
-          </div>
+          <p className="media-page__subtitle">
+            {movies.length} films disponibles
+          </p>
 
-          {/* SEARCH */}
-          <form onSubmit={handleSearch} className="media-search">
+          {/*  SEARCH */}
+          <form onSubmit={handleSearch} style={{ marginBottom: "20px" }}>
             <input
               type="text"
               placeholder="Rechercher un film..."
@@ -82,10 +93,27 @@ function Media() {
             <button type="submit">Rechercher</button>
           </form>
 
-          {/* LOADING */}
+          {/*  FILTRES */}
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <button onClick={loadMovies}>Tous</button>
+
+            {genres.map((g) => (
+              <button
+                key={g.id}
+                onClick={() => handleGenreClick(g.id)}
+                style={{
+                  background: selectedGenre === g.id ? "orange" : "#eee"
+                }}
+              >
+                {g.name}
+              </button>
+            ))}
+          </div>
+
+          {/* ⏳ LOADING */}
           {loading && <p>Chargement...</p>}
 
-          {/* GRID */}
+          {/* 🎬 GRID */}
           <div className="media-page__grid">
             {!loading &&
               movies.map((movie) => (
@@ -95,7 +123,7 @@ function Media() {
                   cover={
                     movie.poster_path
                       ? `https://image.tmdb.org/t/p/w300${movie.poster_path}`
-                      : "https://via.placeholder.com/300x450?text=No+Image"
+                      : "https://via.placeholder.com/300x450"
                   }
                   rating={movie.vote_average}
                   type="movie"
@@ -103,7 +131,6 @@ function Media() {
               ))}
           </div>
 
-          {/* EMPTY STATE */}
           {!loading && movies.length === 0 && (
             <p>Aucun film trouvé.</p>
           )}
